@@ -16,14 +16,10 @@
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            background: transparent;
+            background: transparent; /* Baseline transparent, JS overrides for Notion */
             font-family: 'Courier New', monospace;
             padding: 20px;
-            transition: background-color 0.3s ease;
-        }
-
-        body.light-mode {
-            background-color: rgba(255, 255, 255, 0.1);
+            transition: background 0.3s ease;
         }
 
         .progress-container {
@@ -240,8 +236,10 @@
         const themeToggle = document.getElementById('theme-toggle');
         const body = document.body;
 
-        // Load saved theme preference
-        const savedTheme = localStorage.getItem('theme') || 'dark';
+        // Auto-detect system preference if no local storage is set
+        const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+        const savedTheme = localStorage.getItem('theme') || (prefersLight ? 'light' : 'dark');
+        
         if (savedTheme === 'light') {
             body.classList.add('light-mode');
             themeToggle.textContent = '☀️';
@@ -252,6 +250,11 @@
             const isLight = body.classList.contains('light-mode');
             themeToggle.textContent = isLight ? '☀️' : '🌙';
             localStorage.setItem('theme', isLight ? 'light' : 'dark');
+
+            // Force Notion fix script to trigger on manual toggle
+            if (typeof setBodyBackground === 'function') {
+                setBodyBackground();
+            }
         });
 
         // Initial update
@@ -259,6 +262,36 @@
 
         // Update every minute
         setInterval(updateProgress, 60000);
+
+        // --- Notion Background Fix Script ---
+        (function(){
+            window.setBodyBackground = function() {
+                try {
+                    // Check if the light-mode class is currently applied
+                    const isLight = document.body.classList.contains('light-mode');
+                    document.body.style.background = isLight ? '#ffffff' : '#191919';
+                } catch(e) {
+                    document.body.style.background = '#ffffff';
+                }
+            };
+
+            if(window.matchMedia){
+                window.matchMedia('(prefers-color-scheme: dark)').addListener((e) => {
+                    // Only auto-update if the user hasn't explicitly set a preference
+                    if (!localStorage.getItem('theme')) {
+                        if (e.matches) {
+                            document.body.classList.remove('light-mode');
+                            themeToggle.textContent = '🌙';
+                        } else {
+                            document.body.classList.add('light-mode');
+                            themeToggle.textContent = '☀️';
+                        }
+                        setBodyBackground();
+                    }
+                });
+            }
+            setBodyBackground();
+        })();
     </script>
 </body>
 </html>
